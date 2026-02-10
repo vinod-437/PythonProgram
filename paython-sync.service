@@ -1,0 +1,18 @@
+
+[Unit]
+Description=PaythonProgram Biometric Sync Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+# Update path to your installation
+WorkingDirectory=/opt/PaythonProgram
+# Use the virtual environment python or the built executable
+ExecStart=/opt/PaythonProgram/venv/bin/python /opt/PaythonProgram/src/main.py
+# Restart continuously on failure
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
