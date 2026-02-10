@@ -52,10 +52,9 @@ def update_sync_status(txn_ids):
         params = ('UpdateBioSyncData', txn_ids)
         
         cursor.execute(sql, params)
+        conn.commit()
         
-        row = cursor.fetchone()
-        if row:
-            return row[0]
+        return True
         return None
 
     except Exception as e:
