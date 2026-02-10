@@ -14,7 +14,7 @@ def setup_logger():
         os.makedirs(log_path)
     
     # Create a custom logger
-    logger = logging.getLogger("PaythonProgram")
+    logger = logging.getLogger("TanhkapayPythonProgram")
     
     # Set level
     level = getattr(logging, log_level_str.upper(), logging.INFO)

@@ -4,20 +4,51 @@ import sys
 from dotenv import load_dotenv
 
 # Add the project root to the python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if getattr(sys, 'frozen', False):
+    # If frozen, the executable's directory should be in sys.path so 'config' package is found there
+    application_path = os.path.dirname(sys.executable)
+    sys.path.insert(0, application_path)
+else:
+    # If script, use standard project root logic
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import settings
-from src.logger import setup_logger
-from src.database import get_bio_punches_data, update_sync_status
-from src.api_client import send_punch_data
+try:
+    from config import settings
+    from src.logger import setup_logger
+    from src.database import get_bio_punches_data, update_sync_status
+    from src.api_client import send_punch_data
+except ImportError:
+    # Fallback for frozen executable where src might be flattened or not a package
+    # This assumes PyInstaller bundles contents of src at root or similar
+    from config import settings
+    from logger import setup_logger
+    from database import get_bio_punches_data, update_sync_status
+    from api_client import send_punch_data
+
+def get_application_path():
+    """
+    Returns the path to the application directory.
+    If running as a PyInstaller bundle, this is the directory of the executable.
+    If running as a script, this is the directory of the script (project root).
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        return os.path.dirname(sys.executable)
+    else:
+        # Running as python script
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def main():
+    # Determine base path
+    base_path = get_application_path()
+    
     # Load configuration
-    load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', '.env'))
+    env_path = os.path.join(base_path, 'config', '.env')
+    load_dotenv(env_path)
     
     # Setup logging
     logger = setup_logger()
-    logger.info("Starting PaythonProgram Data Sync...")
+    logger.info("Starting TanhkapayPythonProgram Data Sync...")
 
     try:
         # 1. Fetch data from DB

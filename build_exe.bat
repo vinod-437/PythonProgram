@@ -1,4 +1,3 @@
-
 @echo off
 echo Building PaythonProgram Executable...
 
@@ -10,25 +9,29 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM Activate Virtual Environment
-if exist "venv\Scripts\activate.bat" (
-    call venv\Scripts\activate.bat
-) else (
-    echo Virtual environment not found. Please run setup.bat first.
+REM Clean previous build
+if exist "dist" rmdir /s /q "dist"
+if exist "build" rmdir /s /q "build"
+
+REM Run PyInstaller
+echo Creating executable...
+python -m PyInstaller --noconfirm --onefile --console --name "TanhkapayPythonProgram" --paths "src" src/main.py
+
+if %errorlevel% neq 0 (
+    echo PyInstaller failed.
     pause
     exit /b 1
 )
 
-REM Install dependencies if needed (including pyinstaller)
-pip install -r requirements.txt
+echo Copying configuration...
+if not exist "dist\config" mkdir "dist\config"
+copy "config\.env" "dist\config\.env"
+copy "config\*.py" "dist\config\"
 
-REM Run PyInstaller
-echo Creating executable...
-pyinstaller --noconfirm --onefile --console --name "PaythonProgram" --add-data "config;config" --paths "src" src/main.py
-
-echo Build Complete. Checking dist folder...
-if exist "dist\PaythonProgram.exe" (
-    echo Executable created successfully at dist\PaythonProgram.exe
+echo Build Complete.
+if exist "dist\TanhkapayPythonProgram.exe" (
+    echo Executable created successfully at dist\TanhkapayPythonProgram.exe
+    echo Configuration copied to dist\config
 ) else (
     echo Build failed.
 )

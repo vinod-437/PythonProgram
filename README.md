@@ -1,5 +1,5 @@
 
-# PaythonProgram - Biometric Data Sync
+# TanhkapayPythonProgram - Biometric Data Sync
 
 This is a Python-based application migrated from the original `.NET` `DotNetPropgram`. 
 It fetches biometric punch data from a local SQL Server database and syncs it to a remote API.
@@ -11,7 +11,7 @@ It fetches biometric punch data from a local SQL Server database and syncs it to
 
 ## Project Structure
 ```
-PaythonProgram/
+TanhkapayPythonProgram/
 ├── config/
 │   ├── .env          # Configuration file (Credentials, DB connection)
 │   └── settings.py   # Config loader
@@ -27,7 +27,7 @@ PaythonProgram/
 ```
 
 ## Setup
-1.  Navigate to the `PaythonProgram` directory.
+1.  Navigate to the `TanhkapayPythonProgram` directory.
 2.  Double-click `setup.bat` to create a virtual environment and install dependencies.
     - Alternatively, run:
       ```bash
@@ -48,16 +48,24 @@ Double-click `run.bat` to execute the sync process.
 
 ## Building Executable (Optional)
 To create a standalone `.exe` file that doesn't require Python to be installed on the target machine:
+
 1.  Double-click `build_exe.bat`.
-2.  The executable will be created in the `dist/` folder.
-3.  Note: You still need the `config/.env` file and `Logs/` directory next to the `.exe` (or in the locations expected by the app). The current build script includes the config folder, but successful execution depends on `.env` existence check.
+    - This will install necessary build tools (like `PyInstaller`) if missing.
+    - It will create a `dist` folder containing the executable and configuration.
+
+2.  **Installation**:
+    - Run `install_script.bat` to copy the application to `C:\TpayBiometricProgram` and create a desktop shortcut.
+
+3.  **Configuration**:
+    - The `config/.env` file is copied alongside the executable in `dist/config/`.
+    - You can edit this file to change database connections or API credentials without rebuilding the application.
 
 ## Scheduling (Optional)
 To run this automatically (e.g., every 15 minutes):
 1.  Open **Windows Task Scheduler**.
 2.  Create a new Basic Task.
 3.  Action: **Start a Program**.
-4.  Program/script: Browse to `run.bat` (or the built `.exe`).
+4.  Program/script: Browse to `run.bat` (or the built `TanhkapayPythonProgram.exe`).
 5.  Set the trigger (e.g., Daily, repeat every 15 mins).
 
 ### Linux (Systemd)
