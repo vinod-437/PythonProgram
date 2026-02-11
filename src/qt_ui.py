@@ -15,10 +15,11 @@ sys.path.append(parent_dir)
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QTabWidget, 
                              QLineEdit, QFormLayout, QTextEdit, QMessageBox, 
-                             QSpinBox, QGroupBox, QComboBox)
+                             QSpinBox, QGroupBox, QComboBox, QSystemTrayIcon, QMenu, QCheckBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, pyqtSlot, QTimer
 # Import QIcon and QPixmap
-from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtGui import QIcon, QPixmap, QAction
+import winreg
 
 from src.main import run_sync
 from config import settings
@@ -44,6 +45,59 @@ def resource_path(relative_path):
         base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     return os.path.join(base_path, relative_path)
+
+    return os.path.join(base_path, relative_path)
+
+def set_auto_start(enable: bool):
+    """ Adds or removes the application from Windows Startup Registry """
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    app_name = "TanhkapaySync"
+    
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_ALL_ACCESS)
+        
+        if enable:
+            if getattr(sys, 'frozen', False):
+                exe_path = sys.executable
+                # Quote path to handle spaces
+                cmd = f'"{exe_path}"'
+                # If we want to start minimized, we might need a flag, but for now just start updates
+                # We can check env var at startup to decide whether to show window
+            else:
+                 # Logic for python script (less critical for end user but good for dev)
+                 python_exe = sys.executable.replace("python.exe", "pythonw.exe")
+                 script_path = os.path.abspath(__file__)
+                 # Entry point is run_gui.py usually
+                 base = os.path.dirname(os.path.dirname(script_path))
+                 script = os.path.join(base, "run_gui.py")
+                 cmd = f'"{python_exe}" "{script}"'
+
+            winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, cmd)
+        else:
+            try:
+                winreg.DeleteValue(key, app_name)
+            except FileNotFoundError:
+                pass # Already disabled
+                
+        winreg.CloseKey(key)
+        return True
+    except Exception as e:
+        logging.error(f"Failed to update registry: {e}")
+        return False
+        
+def check_auto_start():
+    """ Checks if auto-start is enabled in registry """
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    app_name = "TanhkapaySync"
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ)
+        winreg.QueryValueEx(key, app_name)
+        winreg.CloseKey(key)
+        return True
+    except FileNotFoundError:
+        return False
+    except Exception:
+        return False
 
 # --- Workers ---
 
@@ -111,12 +165,58 @@ class MainWindow(QMainWindow):
         self.create_config_tab()
         self.create_logs_tab()
 
-        # Logging Setup
         self.setup_logging()
+
+        # System Tray
+        self.setup_system_tray()
 
         # Scheduler
         self.scheduler_thread = SchedulerThread()
         self.scheduler_thread.start() # Start loop but jobs are added dynamically
+
+    def setup_system_tray(self):
+        self.tray_icon = QSystemTrayIcon(self)
+        icon_path = resource_path("assets/favicon.webp")
+        if os.path.exists(icon_path):
+            self.tray_icon.setIcon(QIcon(icon_path))
+        else:
+            # Fallback if no icon
+            self.tray_icon.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+
+        # Context Menu
+        tray_menu = QMenu()
+        
+        show_action = QAction("Show", self)
+        show_action.triggered.connect(self.show)
+        tray_menu.addAction(show_action)
+        
+        quit_action = QAction("Quit", self)
+        quit_action.triggered.connect(QApplication.instance().quit)
+        tray_menu.addAction(quit_action)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+        
+        # Connect double click to show
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
+
+    def on_tray_icon_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.show()
+
+    def closeEvent(self, event):
+        if settings.get_minimize_to_tray():
+            event.ignore()
+            self.hide()
+            self.tray_icon.showMessage(
+                "Tanhkapay Sync",
+                "Application minimized to tray. Right-click icon to quit.",
+                QSystemTrayIcon.MessageIcon.Information,
+                2000
+            )
+        else:
+            self.scheduler_thread.stop()
+            event.accept()
 
     def setup_logging(self):
         handler = QtLogHandler(self.log_signal)
@@ -183,7 +283,8 @@ class MainWindow(QMainWindow):
         lay_sched.addWidget(QLabel("Interval (minutes):"))
         self.spin_interval = QSpinBox()
         self.spin_interval.setRange(1, 10080) # 1 week max
-        self.spin_interval.setValue(60)
+        self.spin_interval.setRange(1, 10080) # 1 week max
+        self.spin_interval.setValue(settings.get_sync_interval())
         lay_sched.addWidget(self.spin_interval)
 
         self.btn_start_sched = QPushButton("Start Scheduler")
@@ -338,6 +439,28 @@ class MainWindow(QMainWindow):
         self.entries['LOG_TO_FILE'] = cmb_log
         
         layout.addLayout(form_layout)
+
+        # --- Application Settings ---
+        grp_app = QGroupBox("Application Settings")
+        lay_app = QVBoxLayout()
+        
+        # Run on Startup
+        self.chk_startup = QCheckBox("Run on Windows Startup")
+        self.chk_startup.setChecked(check_auto_start())
+        lay_app.addWidget(self.chk_startup)
+        
+        # Start Minimized
+        self.entries['START_MINIMIZED'] = QCheckBox("Start Minimized in Tray")
+        self.entries['START_MINIMIZED'].setChecked(settings.get_start_minimized())
+        lay_app.addWidget(self.entries['START_MINIMIZED'])
+        
+        # Minimize to Tray
+        self.entries['MINIMIZE_TO_TRAY'] = QCheckBox("Minimize to Tray on Close")
+        self.entries['MINIMIZE_TO_TRAY'].setChecked(settings.get_minimize_to_tray())
+        lay_app.addWidget(self.entries['MINIMIZE_TO_TRAY'])
+        
+        grp_app.setLayout(lay_app)
+        layout.addWidget(grp_app)
         
         btn_save = QPushButton("Save Configuration")
         btn_save.clicked.connect(self.save_config)
@@ -354,6 +477,11 @@ class MainWindow(QMainWindow):
             
         env_path = os.path.join(base_path, 'config', '.env')
         try:
+            # Handle Registry for Startup
+            startup_enabled = self.chk_startup.isChecked()
+            if not set_auto_start(startup_enabled):
+                QMessageBox.warning(self, "Registry Error", "Failed to update Startup registry key. Try running as Admin.")
+
             # Read existing lines
             lines = []
             if os.path.exists(env_path):
@@ -368,8 +496,13 @@ class MainWindow(QMainWindow):
             for key, entry in self.entries.items():
                 if isinstance(entry, QComboBox):
                     save_data[key] = "True" if entry.currentText() == "Yes" else "False"
+                elif isinstance(entry, QCheckBox):
+                    save_data[key] = "True" if entry.isChecked() else "False"
                 else:
                     save_data[key] = entry.text()
+            
+            # Save Sync Interval from Dashboard tab
+            save_data['SYNC_INTERVAL'] = str(self.spin_interval.value())
             
             # Construct DB_CONNECTION_STRING
             server = save_data.get('DB_SERVER')
@@ -445,9 +578,7 @@ class MainWindow(QMainWindow):
         
         self.tabs.addTab(tab, "Logs")
     
-    def closeEvent(self, event):
-        self.scheduler_thread.stop()
-        event.accept()
+    
 
 def main():
     app = QApplication(sys.argv)

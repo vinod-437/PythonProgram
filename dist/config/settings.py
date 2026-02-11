@@ -48,3 +48,11 @@ def get_log_level():
 def get_log_to_file():
     val = os.getenv('LOG_TO_FILE', 'True')
     return val.lower() in ('true', '1', 'yes')
+
+def get_start_minimized():
+    val = os.getenv('START_MINIMIZED', 'False')
+    return val.lower() in ('true', '1', 'yes')
+
+def get_minimize_to_tray():
+    val = os.getenv('MINIMIZE_TO_TRAY', 'True')
+    return val.lower() in ('true', '1', 'yes')
