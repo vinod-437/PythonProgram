@@ -63,3 +63,7 @@ def get_sync_interval():
         return int(val)
     except ValueError:
         return 60
+
+def get_scheduler_auto_start():
+    val = os.getenv('SCHEDULER_AUTO_START', 'False')
+    return val.lower() in ('true', '1', 'yes')

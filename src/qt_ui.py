@@ -287,6 +287,11 @@ class MainWindow(QMainWindow):
         self.spin_interval.setValue(settings.get_sync_interval())
         lay_sched.addWidget(self.spin_interval)
 
+        # Auto-Start Scheduler Checkbox
+        self.chk_auto_sched = QCheckBox("Auto-start Scheduler on App Launch")
+        self.chk_auto_sched.setChecked(settings.get_scheduler_auto_start())
+        lay_sched.addWidget(self.chk_auto_sched)
+
         self.btn_start_sched = QPushButton("Start Scheduler")
         self.btn_start_sched.setCheckable(True)
         self.btn_start_sched.clicked.connect(self.toggle_scheduler)
@@ -501,6 +506,9 @@ class MainWindow(QMainWindow):
                 else:
                     save_data[key] = entry.text()
             
+            # Save Scheduler Auto-Start
+            save_data['SCHEDULER_AUTO_START'] = "True" if self.chk_auto_sched.isChecked() else "False"
+            
             # Save Sync Interval from Dashboard tab
             save_data['SYNC_INTERVAL'] = str(self.spin_interval.value())
             
@@ -582,8 +590,24 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+    
+    # Check if we should start minimized
+    start_minimized = settings.get_start_minimized()
+    
     window = MainWindow()
-    window.show()
+    
+    # Apply initial scheduler state if auto-start is enabled
+    if settings.get_scheduler_auto_start():
+        window.btn_start_sched.setChecked(True)
+        window.toggle_scheduler(True)
+        
+    if start_minimized:
+        # Don't show the window, just the tray
+        # But we need to ensure the tray icon is visible (it is set up in __init__)
+        logging.info("Application started minimized to tray.")
+    else:
+        window.show()
+        
     sys.exit(app.exec())
 
 if __name__ == "__main__":
