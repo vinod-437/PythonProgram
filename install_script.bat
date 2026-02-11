@@ -1,7 +1,7 @@
 @echo off
 set "SOURCE_DIR=%~dp0\dist"
 set "TARGET_DIR=C:\TpayBiometricProgram"
-set "EXE_NAME=TanhkapayPythonProgram.exe"
+set "EXE_NAME=TanhkapayBiometricSync.exe"
 
 echo Installing Tpay Biometric Program...
 

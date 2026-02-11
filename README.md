@@ -65,7 +65,7 @@ To run this automatically (e.g., every 15 minutes):
 1.  Open **Windows Task Scheduler**.
 2.  Create a new Basic Task.
 3.  Action: **Start a Program**.
-4.  Program/script: Browse to `run.bat` (or the built `TanhkapayPythonProgram.exe`).
+4.  Program/script: Browse to `run.bat` (or the built `TanhkapayBiometricSync.exe`).
 5.  Set the trigger (e.g., Daily, repeat every 15 mins).
 
 ### Linux (Systemd)
@@ -108,5 +108,5 @@ To package the application (including the UI) into a single executable:
 ```bash
 build_exe.bat
 ```
-The output file `TanhkapayPythonProgram.exe` will be located in the `dist` folder.
+The output file `TanhkapayBiometricSync.exe` will be located in the `dist` folder.
 
