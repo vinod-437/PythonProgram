@@ -38,7 +38,12 @@ def get_application_path():
         # Running as python script
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def main():
+def run_sync():
+    """
+    Runs the synchronization process and returns a result dictionary.
+    Returns:
+        dict: {'success': bool, 'message': str}
+    """
     # Determine base path
     base_path = get_application_path()
     
@@ -57,7 +62,7 @@ def main():
         
         if not data:
             logger.info("No record found for syncing.")
-            return
+            return {'success': True, 'message': "No record found for syncing."}
 
         # 2. Sync with API
         logger.info("Syncing data with API...")
@@ -71,16 +76,25 @@ def main():
                  update_result = update_sync_status(txn_ids)
                  if update_result:
                      logger.info("Database updated successfully.")
+                     return {'success': True, 'message': f"Successfully synced {len(txn_ids)} records."}
                  else:
                      logger.warning("Records synced but failed to update database status.")
+                     return {'success': False, 'message': "Records synced but failed to update database status."}
              else:
                  logger.warning("API returned success but no transaction IDs.")
+                 return {'success': True, 'message': "API returned success but no transaction IDs."}
         else:
-             logger.error(f"API Sync failed. Message: {api_result.get('message') if api_result else 'Unknown error'}")
+             error_msg = f"API Sync failed. Message: {api_result.get('message') if api_result else 'Unknown error'}"
+             logger.error(error_msg)
+             return {'success': False, 'message': error_msg}
 
     except Exception as e:
         logger.exception(f"An unexpected error occurred: {e}")
-        print(f"Unable to Sync Records {e}")
+        return {'success': False, 'message': f"An unexpected error occurred: {e}"}
+
+def main():
+    result = run_sync()
+    print(result['message'])
 
 if __name__ == "__main__":
     main()

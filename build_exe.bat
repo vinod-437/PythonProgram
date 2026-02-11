@@ -15,7 +15,7 @@ if exist "build" rmdir /s /q "build"
 
 REM Run PyInstaller
 echo Creating executable...
-python -m PyInstaller --noconfirm --onefile --console --name "TanhkapayPythonProgram" --paths "src" src/main.py
+python -m PyInstaller --noconfirm --onefile --windowed --name "TanhkapayPythonProgram" --add-data "assets;assets" run_gui.py
 
 if %errorlevel% neq 0 (
     echo PyInstaller failed.

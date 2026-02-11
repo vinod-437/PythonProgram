@@ -1,15 +1,23 @@
 
-import pyodbc
+
+# import pyodbc # Moved inside function
+
 import os
 import logging
+
+from config import settings
 
 logger = logging.getLogger("PaythonProgram")
 
 def get_db_connection():
-    conn_str = os.getenv('DB_CONNECTION_STRING')
+    conn_str = settings.get_db_connection_string()
     try:
+        import pyodbc
         conn = pyodbc.connect(conn_str)
         return conn
+    except ImportError:
+        logger.error("pyodbc module not found. Database features unavailable.")
+        raise
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
         raise

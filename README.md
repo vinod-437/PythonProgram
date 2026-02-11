@@ -80,5 +80,33 @@ To run this automatically (e.g., every 15 minutes):
 ### Linux (Cron)
 Run `crontab -e` and add:
 ```bash
+
 */15 * * * * /path/to/venv/bin/python /path/to/PaythonProgram/src/main.py >> /var/log/paython-sync.log 2>&1
 ```
+
+## UI Application
+
+The application now includes a graphical user interface (GUI) for easier configuration and scheduling.
+
+### Requirements
+- Python 3.10+
+- `tkinter` support (usually included with Python, ensure "tcl/tk and IDLE" is selected during installation)
+- Dependencies listed in `requirements.txt`
+
+### Running the UI
+To launch the UI manager:
+```bash
+python src/ui.py
+```
+From the UI, you can:
+- **Dashboard**: Run manual syncs and configure the automated scheduler.
+- **Configuration**: View and edit application settings (saved to `.env`).
+- **Logs**: Monitor real-time logs.
+
+### Building the Executable
+To package the application (including the UI) into a single executable:
+```bash
+build_exe.bat
+```
+The output file `TanhkapayPythonProgram.exe` will be located in the `dist` folder.
+

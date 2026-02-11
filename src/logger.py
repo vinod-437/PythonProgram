@@ -20,22 +20,27 @@ def setup_logger():
     level = getattr(logging, log_level_str.upper(), logging.INFO)
     logger.setLevel(level)
 
-    # Avoid adding handlers multiple times if setup_logger is called repeatedly
-    if logger.handlers:
-        return logger
+    # Check if file logging is enabled
+    log_to_file = os.getenv('LOG_TO_FILE', 'True').lower() in ('true', '1', 'yes')
 
-    # Create handlers
-    log_filename = f"Log_{datetime.now().strftime('%Y-%m-%d')}.txt"
-    file_handler = logging.FileHandler(os.path.join(log_path, log_filename))
-    console_handler = logging.StreamHandler(sys.stdout)
-
-    # Create formatters and add it to handlers
+    # Add handlers (check if they exist to avoid duplicates)
+    has_file_handler = any(isinstance(h, logging.FileHandler) for h in logger.handlers)
+    has_stream_handler = any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) for h in logger.handlers)
+    
     log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(log_format)
-    console_handler.setFormatter(log_format)
 
-    # Add handlers to the logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+    if log_to_file and not has_file_handler:
+        log_filename = f"Log_{datetime.now().strftime('%Y-%m-%d')}.txt"
+        file_handler = logging.FileHandler(os.path.join(log_path, log_filename))
+        file_handler.setFormatter(log_format)
+        logger.addHandler(file_handler)
+    
+    # Note: If LOG_TO_FILE is False, we don't remove existing file handlers here, 
+    # but normally this runs once or we assume the restart handles it.
+    
+    if not has_stream_handler:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(log_format)
+        logger.addHandler(console_handler)
 
     return logger

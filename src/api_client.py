@@ -5,12 +5,14 @@ import os
 import logging
 import base64
 
+from config import settings
+
 logger = logging.getLogger("PaythonProgram")
 
 def send_punch_data(data):
-    api_url = os.getenv('TP_API_URL')
-    username = os.getenv('API_USERNAME')
-    password = os.getenv('API_PASSWORD')
+    api_url = settings.get_tp_api_url()
+    username = settings.get_api_username()
+    password = settings.get_api_password()
     
     if not all([api_url, username, password]):
         logger.error("API configuration missing/incomplete.")
