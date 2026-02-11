@@ -39,3 +39,18 @@
 2026-02-11 19:17:02,332 - INFO - Scheduler started with 1 min interval.
 2026-02-11 19:17:02,332 - INFO - Application started minimized to tray.
 2026-02-11 19:17:16,019 - INFO - Application starting...
+2026-02-11 19:17:16,199 - INFO - Startup: sys.executable: C:\Office_Work\Project2021\GitLab_Projects\Tpay-Biomatric-Program\PythonProgram\dist\TanhkapayBiometricSync.exe
+2026-02-11 19:17:16,199 - INFO - Startup: sys.executable: C:\Office_Work\Project2021\GitLab_Projects\Tpay-Biomatric-Program\PythonProgram\dist\TanhkapayBiometricSync.exe
+2026-02-11 19:17:16,200 - INFO - Startup: Base Dir: C:\Office_Work\Project2021\GitLab_Projects\Tpay-Biomatric-Program\PythonProgram\dist
+2026-02-11 19:17:16,200 - INFO - Startup: Base Dir: C:\Office_Work\Project2021\GitLab_Projects\Tpay-Biomatric-Program\PythonProgram\dist
+2026-02-11 19:17:16,200 - INFO - Startup: Expected .env path: C:\Office_Work\Project2021\GitLab_Projects\Tpay-Biomatric-Program\PythonProgram\dist\config\.env
+2026-02-11 19:17:16,200 - INFO - Startup: Expected .env path: C:\Office_Work\Project2021\GitLab_Projects\Tpay-Biomatric-Program\PythonProgram\dist\config\.env
+2026-02-11 19:17:16,200 - INFO - Startup: .env exists: True
+2026-02-11 19:17:16,200 - INFO - Startup: .env exists: True
+2026-02-11 19:17:16,201 - INFO - Scheduler started with 1 min interval.
+2026-02-11 19:17:16,201 - INFO - Scheduler started with 1 min interval.
+2026-02-11 19:17:16,201 - INFO - Application started minimized to tray.
+2026-02-11 19:17:29,028 - INFO - Scheduler stopped.
+2026-02-11 19:17:29,028 - INFO - Scheduler stopped.
+2026-02-11 19:17:34,013 - INFO - Scheduler started with 10 min interval.
+2026-02-11 19:17:34,013 - INFO - Scheduler started with 10 min interval.
