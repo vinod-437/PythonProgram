@@ -56,3 +56,21 @@ def get_start_minimized():
 def get_minimize_to_tray():
     val = os.getenv('MINIMIZE_TO_TRAY', 'True')
     return val.lower() in ('true', '1', 'yes')
+
+def get_sync_interval():
+    val = os.getenv('SYNC_INTERVAL', '60')
+    try:
+        return int(val)
+    except ValueError:
+        return 60
+
+def get_scheduler_auto_start():
+    val = os.getenv('SCHEDULER_AUTO_START', 'False')
+    return val.lower() in ('true', '1', 'yes')
+
+def get_app_password():
+    return os.getenv('APP_PASSWORD')
+
+def get_is_logged_in():
+    val = os.getenv('IS_LOGGED_IN', 'False')
+    return val.lower() in ('true', '1', 'yes')

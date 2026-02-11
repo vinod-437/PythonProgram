@@ -1,10 +1,10 @@
-
 import sys
 import os
 import threading
 import schedule
 import time
 import logging
+import hashlib
 from datetime import datetime
 
 # Adjust path to find src/config modules
@@ -15,7 +15,7 @@ sys.path.append(parent_dir)
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QTabWidget, 
                              QLineEdit, QFormLayout, QTextEdit, QMessageBox, 
-                             QSpinBox, QGroupBox, QComboBox, QSystemTrayIcon, QMenu, QCheckBox)
+                             QSpinBox, QGroupBox, QComboBox, QSystemTrayIcon, QMenu, QCheckBox, QDialog, QDialogButtonBox, QStackedWidget)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, pyqtSlot, QTimer
 # Import QIcon and QPixmap
 from PyQt6.QtGui import QIcon, QPixmap, QAction
@@ -34,6 +34,7 @@ else:
     base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 env_path = os.path.join(base_path, 'config', '.env')
+# logging.info(f"Loading environment from: {env_path}") # Moved to __init__
 load_dotenv(env_path, override=True)
 
 def resource_path(relative_path):
@@ -99,6 +100,31 @@ def check_auto_start():
     except Exception:
         return False
 
+        return False
+
+class PasswordDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Authentication Required")
+        self.setFixedSize(300, 150)
+        
+        layout = QVBoxLayout(self)
+        
+        lbl = QLabel("Please enter the application password:")
+        layout.addWidget(lbl)
+        
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(self.password_input)
+        
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+        
+    def get_password(self):
+        return self.password_input.text()
+
 # --- Workers ---
 
 class SyncWorker(QObject):
@@ -146,25 +172,50 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("TankhaPay Biometric Records Synchronization")
-        self.resize(800, 600)
+        
+        # Window Sizing and Centering
+        screen = self.screen()
+        screen_geometry = screen.availableGeometry()
+        screen_width = screen_geometry.width()
+        screen_height = screen_geometry.height()
+        
+        # Set Width to 50% of screen, Height to 60% (looks good ratio)
+        new_width = int(screen_width * 0.5)
+        new_height = int(screen_height * 0.6)
+        
+        self.resize(new_width, new_height)
+        
+        # Center the window
+        qr = self.frameGeometry()
+        cp = screen_geometry.center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
         
         # Set Window Icon
         icon_path = resource_path("assets/favicon.webp")
         self.setWindowIcon(QIcon(icon_path))
 
-        # Main Layout
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
+        # Main Layout - Using Stacked Widget for Locked vs Unlocked Views
+        self.central_stack = QStackedWidget()
+        self.setCentralWidget(self.central_stack)
 
-        # Tabs
-        self.tabs = QTabWidget()
-        main_layout.addWidget(self.tabs)
+        # --- Locked View ---
+        self.locked_widget = QWidget()
+        self.setup_locked_view()
+        self.central_stack.addWidget(self.locked_widget)
 
-        self.create_dashboard_tab()
-        self.create_config_tab()
-        self.create_logs_tab()
+        # --- Unlocked View ---
+        self.unlocked_widget = QWidget()
+        self.setup_unlocked_view()
+        self.central_stack.addWidget(self.unlocked_widget)
+        
+        # Initialize Login State
+        self.is_logged_in = settings.get_is_logged_in()
+        
+        # Apply Initial State
+        self.toggle_auth_state(self.is_logged_in)
 
+        # Logging
         self.setup_logging()
 
         # System Tray
@@ -173,6 +224,133 @@ class MainWindow(QMainWindow):
         # Scheduler
         self.scheduler_thread = SchedulerThread()
         self.scheduler_thread.start() # Start loop but jobs are added dynamically
+
+        # Log startup paths for debugging
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        env_file = os.path.join(base_dir, 'config', '.env')
+        logger = logging.getLogger("TanhkapayPythonProgram")
+        logger.info(f"Startup: sys.executable: {sys.executable}")
+        logger.info(f"Startup: Base Dir: {base_dir}")
+        logger.info(f"Startup: Expected .env path: {env_file}")
+        logger.info(f"Startup: .env exists: {os.path.exists(env_file)}")
+
+    def setup_locked_view(self):
+        layout = QVBoxLayout(self.locked_widget)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(20)
+
+        # Centered Logo
+        logo_label = self.create_banner_large()
+        layout.addWidget(logo_label, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Password Input Container
+        input_container = QWidget()
+        # Responsive width: roughly 50% of the window width, but clamped
+        input_container.setMinimumWidth(300)
+        input_container.setMaximumWidth(500) 
+        
+        input_layout = QVBoxLayout(input_container)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        
+        lbl_instruction = QLabel("Enter Application Password")
+        lbl_instruction.setStyleSheet("color: gray; font-size: 14px;")
+        input_layout.addWidget(lbl_instruction)
+
+        self.txt_password_login = QLineEdit()
+        self.txt_password_login.setEchoMode(QLineEdit.EchoMode.Password)
+        self.txt_password_login.setPlaceholderText("Password")
+        self.txt_password_login.setStyleSheet("padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px;")
+        self.txt_password_login.returnPressed.connect(self.handle_direct_login)
+        input_layout.addWidget(self.txt_password_login)
+        
+        # Error Label
+        self.lbl_login_error = QLabel("")
+        self.lbl_login_error.setStyleSheet("color: red; font-size: 12px;")
+        self.lbl_login_error.hide()
+        input_layout.addWidget(self.lbl_login_error)
+
+        layout.addWidget(input_container, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addStretch() # Push everything up a bit if needed, or keep centered
+
+    def setup_unlocked_view(self):
+        layout = QVBoxLayout(self.unlocked_widget)
+        
+        # Header (Logo + Logout)
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        
+        header_layout.addWidget(self.create_banner())
+        
+        self.btn_logout = QPushButton("Logout")
+        self.btn_logout.setFixedWidth(100)
+        self.btn_logout.setStyleSheet("background-color: #ffcccc; color: red; font-weight: bold;")
+        self.btn_logout.clicked.connect(self.handle_logout)
+        header_layout.addWidget(self.btn_logout, alignment=Qt.AlignmentFlag.AlignRight)
+        
+        layout.addWidget(header_widget)
+
+        # Tabs
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+
+        self.create_dashboard_tab()
+        self.create_config_tab()
+        self.create_logs_tab()
+
+    def create_banner_large(self):
+        """ Creates a larger banner label for the locked screen """
+        lbl_logo = QLabel()
+        # lbl_logo.setFixedHeight(80) 
+        lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        logo_path = resource_path("assets/logo.png")
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            # Scale to height 80
+            pixmap = pixmap.scaledToHeight(80, Qt.TransformationMode.SmoothTransformation)
+            lbl_logo.setPixmap(pixmap)
+        else:
+            lbl_logo.setText("<h1>Tanhkapay Sync Manager</h1>")
+            lbl_logo.setStyleSheet("font-size: 24px; font-weight: bold; color: #333;")
+            
+        return lbl_logo
+
+    def handle_direct_login(self):
+        input_pass = self.txt_password_login.text()
+        app_password = settings.get_app_password()
+        
+        if not app_password:
+            # No password set, allow
+            self.toggle_auth_state(True)
+            return
+
+        input_hash = hashlib.md5(input_pass.encode()).hexdigest()
+        
+        if input_hash == app_password or input_pass == app_password:
+            self.lbl_login_error.hide()
+            self.txt_password_login.clear()
+            self.toggle_auth_state(True)
+        else:
+            self.lbl_login_error.setText("Incorrect password.")
+            self.lbl_login_error.show()
+            self.txt_password_login.selectAll()
+
+    def handle_logout(self):
+        self.toggle_auth_state(False)
+
+    def toggle_auth_state(self, is_logged_in):
+        self.is_logged_in = is_logged_in
+        self.update_login_state(is_logged_in)
+        
+        if is_logged_in:
+            self.central_stack.setCurrentWidget(self.unlocked_widget)
+        else:
+            self.central_stack.setCurrentWidget(self.locked_widget)
+            self.txt_password_login.setFocus()
 
     def setup_system_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
@@ -187,7 +365,7 @@ class MainWindow(QMainWindow):
         tray_menu = QMenu()
         
         show_action = QAction("Show", self)
-        show_action.triggered.connect(self.show)
+        show_action.triggered.connect(self.attempt_show)
         tray_menu.addAction(show_action)
         
         quit_action = QAction("Quit", self)
@@ -202,7 +380,13 @@ class MainWindow(QMainWindow):
 
     def on_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            self.show()
+            self.attempt_show()
+
+    def attempt_show(self):
+        # Just show the window. The window content is now protected by tabs visibility.
+        self.show()
+        self.setWindowState(Qt.WindowState.WindowNoState)
+        self.activateWindow()
 
     def closeEvent(self, event):
         if settings.get_minimize_to_tray():
@@ -228,8 +412,18 @@ class MainWindow(QMainWindow):
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
         
+        # Also log to file for debugging
+        log_path = settings.get_log_path()
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+            
+        file_handler = logging.FileHandler(os.path.join(log_path, "debug_gui.log"))
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        
         logger2 = logging.getLogger("PaythonProgram")
         logger2.addHandler(handler)
+        logger2.addHandler(file_handler)
 
         self.log_signal.connect(self.append_log)
 
@@ -260,7 +454,8 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         
         # Add Banner
-        layout.addWidget(self.create_banner())
+        # Add Banner - Removed
+        # layout.addWidget(self.create_banner())
 
         # Manual Sync
         grp_manual = QGroupBox("Manual Synchronization")
@@ -365,7 +560,8 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         
         # Add Banner
-        layout.addWidget(self.create_banner())
+        # Add Banner - Removed
+        # layout.addWidget(self.create_banner())
 
         form_layout = QFormLayout()
         
@@ -464,6 +660,15 @@ class MainWindow(QMainWindow):
         self.entries['MINIMIZE_TO_TRAY'].setChecked(settings.get_minimize_to_tray())
         lay_app.addWidget(self.entries['MINIMIZE_TO_TRAY'])
         
+        # App Password
+        lay_pass = QHBoxLayout()
+        lay_pass.addWidget(QLabel("App Password:"))
+        self.entries['APP_PASSWORD'] = QLineEdit()
+        self.entries['APP_PASSWORD'].setPlaceholderText("Enter new password to change (leave empty to keep)")
+        self.entries['APP_PASSWORD'].setEchoMode(QLineEdit.EchoMode.Password)
+        lay_pass.addWidget(self.entries['APP_PASSWORD'])
+        lay_app.addLayout(lay_pass)
+        
         grp_app.setLayout(lay_app)
         layout.addWidget(grp_app)
         
@@ -481,6 +686,7 @@ class MainWindow(QMainWindow):
             base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             
         env_path = os.path.join(base_path, 'config', '.env')
+        logging.getLogger("TanhkapayPythonProgram").info(f"Saving configuration to: {env_path}")
         try:
             # Handle Registry for Startup
             startup_enabled = self.chk_startup.isChecked()
@@ -499,12 +705,23 @@ class MainWindow(QMainWindow):
             # Prepare data including constructed connection string
             save_data = {}
             for key, entry in self.entries.items():
+                if key == 'APP_PASSWORD':
+                    continue # Handle separately
                 if isinstance(entry, QComboBox):
                     save_data[key] = "True" if entry.currentText() == "Yes" else "False"
                 elif isinstance(entry, QCheckBox):
                     save_data[key] = "True" if entry.isChecked() else "False"
                 else:
                     save_data[key] = entry.text()
+            
+            # Handle Password
+            new_pass = self.entries['APP_PASSWORD'].text()
+            if new_pass:
+                # Hash it
+                hashed = hashlib.md5(new_pass.encode()).hexdigest()
+                save_data['APP_PASSWORD'] = hashed
+            
+            # Save Scheduler Auto-Start
             
             # Save Scheduler Auto-Start
             save_data['SCHEDULER_AUTO_START'] = "True" if self.chk_auto_sched.isChecked() else "False"
@@ -577,7 +794,8 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         
         # Add Banner
-        layout.addWidget(self.create_banner())
+        # Add Banner - Removed
+        # layout.addWidget(self.create_banner())
         
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
@@ -585,12 +803,106 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.log_text)
         
         self.tabs.addTab(tab, "Logs")
+
+    def update_login_state(self, is_logged_in):
+        """ Updates only the IS_LOGGED_IN key in .env """
+        if getattr(sys, 'frozen', False):
+            base_path = os.path.dirname(sys.executable)
+        else:
+            base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+        env_path = os.path.join(base_path, 'config', '.env')
+        
+        try:
+            lines = []
+            if os.path.exists(env_path):
+                with open(env_path, 'r') as f:
+                    lines = f.readlines()
+            
+            new_lines = []
+            key_found = False
+            val_str = "True" if is_logged_in else "False"
+            
+            for line in lines:
+                if line.strip().startswith("IS_LOGGED_IN="):
+                    new_lines.append(f"IS_LOGGED_IN={val_str}\n")
+                    key_found = True
+                else:
+                    new_lines.append(line)
+            
+            if not key_found:
+                if new_lines and not new_lines[-1].endswith('\n'):
+                    new_lines[-1] += '\n'
+                new_lines.append(f"IS_LOGGED_IN={val_str}\n")
+                
+            with open(env_path, 'w') as f:
+                f.writelines(new_lines)
+                
+            from dotenv import load_dotenv
+            load_dotenv(env_path, override=True)
+            
+        except Exception as e:
+            logging.error(f"Failed to update login state: {e}")
+
+    
     
     
 
+
+def setup_global_logging():
+    log_path = settings.get_log_path()
+    if not os.path.exists(log_path):
+        try:
+            os.makedirs(log_path)
+        except Exception:
+            pass
+            
+    log_file = os.path.join(log_path, "debug_gui.log")
+    
+    # Configure root logger to write to file
+    logging.basicConfig(
+        filename=log_file,
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+
+def verify_password_logic(parent=None):
+    """
+    Prompts for password if set. 
+    Returns True if valid (or no password set), False if cancelled/incorrect.
+    """
+    app_password = settings.get_app_password()
+    if not app_password:
+        return True # No password set
+        
+    dlg = PasswordDialog(parent)
+    if dlg.exec() == QDialog.DialogCode.Accepted:
+        input_pass = dlg.get_password()
+        input_hash = hashlib.md5(input_pass.encode()).hexdigest()
+        
+        if input_hash == app_password:
+            return True
+        elif input_pass == app_password:
+            return True # Legacy
+        else:
+            QMessageBox.critical(parent, "Access Denied", "Incorrect password.")
+            return False
+    else:
+        return False # Cancelled
+
 def main():
+    # Setup logging immediately
+    setup_global_logging()
+    logging.info("Application starting...")
+    
     app = QApplication(sys.argv)
     
+    # Check for password protection - REMOVED for persistent login logic
+    # logging.info("Verifying password on startup...")
+    # if not verify_password_logic(None):
+    #     logging.info("Password verification failed or cancelled. Exiting.")
+    #     sys.exit(0)
+
     # Check if we should start minimized
     start_minimized = settings.get_start_minimized()
     
