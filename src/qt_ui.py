@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
         self.move(qr.topLeft())
         
         # Set Window Icon
-        icon_path = resource_path("assets/favicon.webp")
+        icon_path = resource_path("assets/fileicon.ico")
         self.setWindowIcon(QIcon(icon_path))
 
         # Main Layout - Using Stacked Widget for Locked vs Unlocked Views
@@ -354,7 +354,7 @@ class MainWindow(QMainWindow):
 
     def setup_system_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
-        icon_path = resource_path("assets/favicon.webp")
+        icon_path = resource_path("assets/fileicon.ico")
         if os.path.exists(icon_path):
             self.tray_icon.setIcon(QIcon(icon_path))
         else:

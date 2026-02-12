@@ -15,7 +15,7 @@ if exist "build" rmdir /s /q "build"
 
 REM Run PyInstaller
 echo Creating executable...
-python -m PyInstaller --noconfirm --onefile --windowed --name "TanhkapayBiometricSync" --add-data "assets;assets" run_gui.py
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name "TanhkapayBiometricSync" --icon "assets\fileicon.ico" --add-data "assets;assets" run_gui.py
 
 if %errorlevel% neq 0 (
     echo PyInstaller failed.
@@ -34,5 +34,6 @@ if exist "dist\TanhkapayBiometricSync.exe" (
     echo Configuration copied to dist\config
 ) else (
     echo Build failed.
+[diff_block_end]
 )
 pause
